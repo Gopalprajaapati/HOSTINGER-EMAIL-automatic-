@@ -1,0 +1,96 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import os
+import time
+import pandas as pd
+
+# Set credentials via environment variables for security
+email = os.getenv("HOSTINGER_EMAIL", "youareemail.com")
+password = os.getenv("HOSTINGER_PASSWORD", "enter you password")
+
+# Load Excel data
+excel_file = 'email_data.xlsx'  # Path to your Excel file
+df = pd.read_excel(excel_file)
+
+# Initialize WebDriver
+driver = webdriver.Chrome()
+
+try:
+    # Open the Hostinger mail login page
+    driver.get('https://mail.hostinger.com/')
+
+    # Wait for the username field to be present
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.NAME, "_user")) 
+    )
+
+    # Login process
+    username_field = driver.find_element(By.NAME, "_user")
+    username_field.send_keys(email)
+    time.sleep(8)  # Wait after entering email
+
+    password_field = driver.find_element(By.NAME, "_pass")
+    password_field.send_keys(password)
+    time.sleep(8)  # Wait after entering password
+
+    submit_button = driver.find_element(By.CSS_SELECTOR, 'button[type="submit"]')
+    submit_button.click()
+    time.sleep(8)  # Wait after clicking submit
+
+    print("Login successful!")
+
+    # Iterate through the rows in the Excel data
+    for index, row in df.iterrows():
+        # Open the compose email page
+        driver.get('https://mail.hostinger.com/?_task=mail&_action=compose')
+
+        # Wait for the new page to load
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        )
+
+        # Fill in recipient email
+        recipient_field = driver.find_element(By.CSS_SELECTOR, 'ul.form-control.recipient-input input')
+        recipient_field.send_keys(row['email'])  # Assuming your Excel column is named 'email'
+        time.sleep(5)  # Wait after entering recipient email
+
+        # Fill in subject
+        subject_field = driver.find_element(By.ID, 'compose-subject')
+        subject_field.send_keys(row['subject'])  # Assuming your Excel column is named 'subject'
+        time.sleep(5)  # Wait after entering subject
+
+        # Switch to the iframe to interact with the email body
+        WebDriverWait(driver, 10).until(
+            EC.frame_to_be_available_and_switch_to_it((By.ID, "composebody_ifr"))
+        )
+
+        # Wait for the body field to be editable and enter text
+        body_field = driver.find_element(By.CSS_SELECTOR, 'body')
+        body_field.send_keys(row['text'])  # Assuming your Excel column is named 'text'
+        time.sleep(5)  # Wait after entering body text
+
+        # Switch back to the main content after entering the body
+        driver.switch_to.default_content()
+
+        # Click the send button
+        send_button = driver.find_element(By.ID, 'rcmbtn110')
+        send_button.click()
+        time.sleep(8)  # Wait after clicking send
+
+        print(f"Email sent to {row['email']}!")
+
+        # Wait some time between sending emails to avoid overloading the server
+        time.sleep(5)
+
+    print("All emails sent successfully!")
+
+    time.sleep(300)  # Give time to ensure the emails are sent before closing the driver
+
+except Exception as e:
+    print(f"An error occurred: {e}")
+
+finally:
+    # Close the WebDriver
+    driver.quit()
